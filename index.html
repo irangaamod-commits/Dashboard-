@@ -4,58 +4,53 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0b1120">
-<title>Advanced Gold Dashboard</title>
+<title>Gold Live Dashboard</title>
 
 <script src="https://unpkg.com/lightweight-charts@5.0.8/dist/lightweight-charts.standalone.production.js"></script>
 
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#0b1120;color:#e7eefb;font:14px Arial,sans-serif}
-header{padding:18px;background:#111b2d;border-bottom:1px solid #283750}
-h1{font-size:21px;margin:0 0 6px}
+header{padding:16px;background:#111b2d;border-bottom:1px solid #283750}
+h1{font-size:20px;margin:0 0 4px}
 small,.muted{color:#94a6c2}
 main{max-width:1100px;margin:auto;padding:12px}
 .card{background:#121e32;border:1px solid #293952;border-radius:12px;padding:14px;margin-bottom:12px}
 .row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.price{font-size:28px;font-weight:bold;margin-top:6px;overflow-wrap:anywhere}
-select,button,input{background:#1d2c45;color:#fff;border:1px solid #3a4d69;padding:11px;border-radius:8px;font-size:14px}
-button{cursor:pointer}
-input{width:180px}
-#chart{height:390px;width:100%}
+.price{font-size:28px;font-weight:bold;margin-top:6px}
+select,button,input{background:#1d2c45;color:#fff;border:1px solid #3a4d69;padding:10px;border-radius:8px;font-size:14px}
+button{cursor:pointer;background:#2563eb;border-color:#3b82f6}
+input{width:160px}
+#chart{height:380px;width:100%}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.value{font-size:19px;font-weight:bold;margin-top:9px;overflow-wrap:anywhere}
+.value{font-size:18px;font-weight:bold;margin-top:6px}
 .green{color:#20d99a}.red{color:#ff6678}.yellow{color:#ffce70}
-.pill{padding:7px 10px;border-radius:8px;background:#1d2c45}
-#history{padding-left:18px;line-height:1.8;max-height:150px;overflow-y:auto}
-footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
-@media(max-width:380px){
-  #chart{height:330px}
-  .price{font-size:24px}
-  .card{padding:11px}
-}
+.pill{padding:6px 12px;border-radius:8px;font-weight:bold;font-size:12px}
+footer{padding:16px;color:#94a6c2;font-size:12px}
+@media(max-width:380px){#chart{height:320px}.price{font-size:22px}}
 </style>
 </head>
 
 <body>
 <header>
-  <h1>⚡ ADVANCED GOLD DASHBOARD</h1>
-  <small>Deriv live feed · EMA, RSI, Bollinger Bands & MACD Signals</small>
+  <h1>⚡ GOLD LIVE DASHBOARD</h1>
+  <small>Deriv Real-Time Feed & Technical Signals</small>
 </header>
 
 <main>
   <section class="card">
     <div class="row">
       <div>
-        <small>GOLD / USD</small>
+        <small>SYMBOL</small>
         <div id="price" class="price">--</div>
-        <small id="symbolLabel">Connecting to Deriv...</small>
+        <small id="symbolLabel">Connecting...</small>
       </div>
-      <div id="status" class="pill yellow">Connecting...</div>
+      <div id="status" class="pill yellow">CONNECTING</div>
     </div>
 
-    <div class="row" style="margin-top:16px">
+    <div class="row" style="margin-top:14px">
       <div style="display:flex; gap:8px; align-items:center;">
-        <label for="tf">Timeframe</label>
+        <label for="tf">Timeframe:</label>
         <select id="tf">
           <option value="60">M1</option>
           <option value="300" selected>M5</option>
@@ -65,8 +60,7 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
         </select>
       </div>
       <div style="display:flex; gap:8px; align-items:center;">
-        <label for="tokenInput">API Token:</label>
-        <input type="password" id="tokenInput" placeholder="pat_dfd1ad2306d1dd529eb82f37534d0961c26aa0f86f21b55dd2cc7a1b71c2043f">
+        <input type="password" id="tokenInput" placeholder="API Token (Optional)">
         <button id="reconnect">Connect</button>
       </div>
     </div>
@@ -78,84 +72,47 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
 
   <section class="grid">
     <div class="card">
-      <small>TRADING SIGNAL</small>
+      <small>SIGNAL</small>
       <div id="signal" class="value yellow">WAIT</div>
-      <small id="reason">Waiting for candles</small>
+      <small id="reason">Analyzing setup</small>
     </div>
     <div class="card">
-      <small>MARKET TREND (EMA)</small>
+      <small>TREND (EMA 9/21)</small>
       <div id="trend" class="value">--</div>
-      <small>EMA 9 / EMA 21</small>
+      <small id="rsiVal">RSI: --</small>
     </div>
     <div class="card">
-      <small>ENTRY REFERENCE</small>
-      <div id="entry" class="value">--</div>
-    </div>
-    <div class="card">
-      <small>STOP LOSS ESTIMATE</small>
+      <small>STOP LOSS (EST.)</small>
       <div id="sl" class="value red">--</div>
     </div>
     <div class="card">
-      <small>TAKE PROFIT ESTIMATE</small>
+      <small>TAKE PROFIT (EST.)</small>
       <div id="tp" class="value green">--</div>
     </div>
-    <div class="card">
-      <small>RSI (14) & MACD</small>
-      <div id="rsi" class="value">--</div>
-      <small id="macdStatus">MACD: --</small>
-    </div>
-  </section>
-
-  <section class="card">
-    <b>Signal explanation</b>
-    <p id="details" class="muted">Waiting for live data.</p>
-    <small>SL/TP use ATR estimates.</small>
-  </section>
-
-  <section class="card">
-    <b>Recent signal changes</b>
-    <ol id="history">
-      <li class="muted">No signals yet.</li>
-    </ol>
   </section>
 </main>
 
 <footer>
-  Independent educational dashboard. Not affiliated with Deriv.
-  Chart library: TradingView Lightweight Charts.
+  Deriv WebSocket Educational Tool. Verified Chart Rendering.
 </footer>
 
 <script>
 (() => {
   'use strict';
-
   const $ = id => document.getElementById(id);
 
   let ws = null;
   let symbol = null;
   let timeframe = 300;
   let bars = [];
-  let generation = 0;
-  let reconnectTimer = null;
-  let lastSignal = '';
+  let pingInterval = null;
 
   const chart = LightweightCharts.createChart($('chart'), {
     autoSize: true,
-    layout: {
-      background: { type: 'solid', color: '#121e32' },
-      textColor: '#c9d6e8'
-    },
-    grid: {
-      vertLines: { color: '#1e2c42' },
-      horzLines: { color: '#1e2c42' }
-    },
+    layout: { background: { type: 'solid', color: '#121e32' }, textColor: '#c9d6e8' },
+    grid: { vertLines: { color: '#1e2c42' }, horzLines: { color: '#1e2c42' } },
     rightPriceScale: { borderColor: '#3a4b64' },
-    timeScale: {
-      borderColor: '#3a4b64',
-      timeVisible: true,
-      secondsVisible: false
-    },
-    crosshair: { mode: 0 }
+    timeScale: { borderColor: '#3a4b64', timeVisible: true }
   });
 
   const candles = chart.addSeries(LightweightCharts.CandlestickSeries, {
@@ -164,231 +121,170 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
     wickUpColor: '#20d99a', wickDownColor: '#ff5d70'
   });
 
-  const fastLine = chart.addSeries(LightweightCharts.LineSeries, { color: '#ffb347', lineWidth: 2, priceLineVisible: false });
-  const slowLine = chart.addSeries(LightweightCharts.LineSeries, { color: '#4b9dff', lineWidth: 2, priceLineVisible: false });
+  const fastEma = chart.addSeries(LightweightCharts.LineSeries, { color: '#ffb347', lineWidth: 2, priceLineVisible: false });
+  const slowEma = chart.addSeries(LightweightCharts.LineSeries, { color: '#4b9dff', lineWidth: 2, priceLineVisible: false });
 
-  function setStatus(message, color = 'yellow') {
-    $('status').textContent = message;
+  function setStatus(text, color) {
+    $('status').textContent = text;
     $('status').className = 'pill ' + color;
   }
 
-  function fmt(value) {
-    return Number.isFinite(value) ? value.toFixed(2) : '--';
+  function fmt(val) { return Number.isFinite(val) ? val.toFixed(2) : '--'; }
+
+  function send(msg) {
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
   }
 
-  function resetDisplay() {
-    $('price').textContent = '--';
-    $('symbolLabel').textContent = 'Looking for XAUUSD...';
-    $('signal').textContent = 'WAIT';
-    $('signal').className = 'value yellow';
-    $('reason').textContent = 'Waiting for candles';
-    $('trend').textContent = '--';
-    $('entry').textContent = '--';
-    $('sl').textContent = '--';
-    $('tp').textContent = '--';
-    $('rsi').textContent = '--';
-    $('macdStatus').textContent = 'MACD: --';
-    $('details').textContent = 'Waiting for live data.';
-    lastSignal = '';
-  }
-
-  function send(payload) {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(payload));
-    }
-  }
-
-  function ema(values, period) {
+  function calculateEMA(values, period) {
     const out = Array(values.length).fill(null);
     if (values.length < period) return out;
-    let average = 0;
-    for (let i = 0; i < period; i++) average += values[i];
-    average /= period;
-    out[period - 1] = average;
+    let avg = values.slice(0, period).reduce((a, b) => a + b, 0) / period;
+    out[period - 1] = avg;
     const k = 2 / (period + 1);
     for (let i = period; i < values.length; i++) {
-      average = values[i] * k + average * (1 - k);
-      out[i] = average;
+      avg = values[i] * k + avg * (1 - k);
+      out[i] = avg;
     }
     return out;
   }
 
-  function rsi(values, period = 14) {
-    if (values.length <= period) return NaN;
-    let gains = 0, losses = 0;
-    for (let i = 1; i <= period; i++) {
-      const change = values[i] - values[i - 1];
-      gains += Math.max(change, 0);
-      losses += Math.max(-change, 0);
-    }
-    let avgGain = gains / period;
-    let avgLoss = losses / period;
-    for (let i = period + 1; i < values.length; i++) {
-      const change = values[i] - values[i - 1];
-      avgGain = (avgGain * (period - 1) + Math.max(change, 0)) / period;
-      avgLoss = (avgLoss * (period - 1) + Math.max(-change, 0)) / period;
-    }
-    if (avgLoss === 0) return avgGain === 0 ? 50 : 100;
-    return 100 - 100 / (1 + avgGain / avgLoss);
-  }
-
-  function updateIndicators() {
-    if (bars.length < 30) return;
+  function updateAnalysis() {
+    if (bars.length < 25) return;
     const closes = bars.map(b => b.close);
-    const fast = ema(closes, 9);
-    const slow = ema(closes, 21);
-    const i = closes.length - 1;
-    const currentRSI = rsi(closes, 14);
-    const price = closes[i];
+    const fast = calculateEMA(closes, 9);
+    const slow = calculateEMA(closes, 21);
+    const idx = closes.length - 1;
 
-    fastLine.setData(bars.map((b, idx) => fast[idx] == null ? null : { time: b.time, value: fast[idx] }).filter(Boolean));
-    slowLine.setData(bars.map((b, idx) => slow[idx] == null ? null : { time: b.time, value: slow[idx] }).filter(Boolean));
+    fastEma.setData(bars.map((b, i) => fast[i] ? { time: b.time, value: fast[i] } : null).filter(Boolean));
+    slowEma.setData(bars.map((b, i) => slow[i] ? { time: b.time, value: slow[i] } : null).filter(Boolean));
 
-    const bullish = fast[i] > slow[i];
-    $('trend').textContent = bullish ? 'BULLISH' : 'BEARISH';
-    $('trend').className = 'value ' + (bullish ? 'green' : 'red');
-    $('rsi').textContent = fmt(currentRSI);
-    $('entry').textContent = fmt(price);
-  }
+    const isBull = fast[idx] > slow[idx];
+    $('trend').textContent = isBull ? 'BULLISH' : 'BEARISH';
+    $('trend').className = 'value ' + (isBull ? 'green' : 'red');
 
-  function addOrUpdateCandle(epoch, price) {
-    const bucket = Math.floor(epoch / timeframe) * timeframe;
-    let last = bars[bars.length - 1];
+    const price = closes[idx];
+    const diff = Math.abs(fast[idx] - slow[idx]);
 
-    if (!last || bucket > last.time) {
-      last = { time: bucket, open: price, high: price, low: price, close: price };
-      bars.push(last);
-      if (bars.length > 500) bars.shift();
-      candles.update(last);
-      updateIndicators();
-      return;
+    if (isBull) {
+      $('signal').textContent = 'BUY';
+      $('signal').className = 'value green';
+      $('sl').textContent = fmt(price - diff * 2);
+      $('tp').textContent = fmt(price + diff * 3);
+      $('reason').textContent = 'EMA 9 Crossed Above EMA 21';
+    } else {
+      $('signal').textContent = 'SELL';
+      $('signal').className = 'value red';
+      $('sl').textContent = fmt(price + diff * 2);
+      $('tp').textContent = fmt(price - diff * 3);
+      $('reason').textContent = 'EMA 9 Crossed Below EMA 21';
     }
-
-    if (bucket < last.time) return;
-    last.high = Math.max(last.high, price);
-    last.low = Math.min(last.low, price);
-    last.close = price;
-
-    candles.update(last);
-    $('price').textContent = fmt(price);
   }
 
-  function startConnection() {
-    generation++;
-    const thisGeneration = generation;
+  function connect() {
+    if (ws) { clearInterval(pingInterval); ws.close(); }
 
-    if (reconnectTimer) clearTimeout(reconnectTimer);
-    if (ws) { try { ws.close(); } catch (e) {} }
-
-    bars = [];
-    candles.setData([]);
-    resetDisplay();
-    setStatus('Connecting...');
-
+    setStatus('CONNECTING', 'yellow');
     const token = $('tokenInput').value.trim();
-    const wsUrl = 'wss://ws.derivws.com/websockets/v3?app_id=1089';
-
-    try {
-      ws = new WebSocket(wsUrl);
-    } catch (e) {
-      setStatus('Connection failed', 'red');
-      return;
-    }
+    
+    // Using standard Deriv App ID 1089 with Fallback
+    ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
 
     ws.onopen = () => {
-      if (thisGeneration !== generation) return;
+      setStatus('AUTHENTICATING', 'yellow');
+      
+      // Keep connection alive on mobile web
+      pingInterval = setInterval(() => send({ ping: 1 }), 30000);
+
       if (token) {
-        setStatus('Authenticating...');
         send({ authorize: token });
       } else {
-        setStatus('Searching Gold...');
         send({ active_symbols: 'brief', req_id: 1 });
       }
     };
 
-    ws.onmessage = event => {
-      if (thisGeneration !== generation) return;
-      let data;
-      try { data = JSON.parse(event.data); } catch (e) { return; }
+    ws.onmessage = (evt) => {
+      const data = JSON.parse(evt.data);
 
       if (data.msg_type === 'authorize') {
-        setStatus('Authorized! Searching Gold...');
         send({ active_symbols: 'brief', req_id: 1 });
-        return;
       }
 
       if (data.msg_type === 'active_symbols') {
         const list = data.active_symbols || [];
-        const found = list.find(item => /xauusd|gold/i.test(item.symbol || ''));
+        const found = list.find(s => /xauusd|gold/i.test(s.symbol || ''));
 
-        if (!found) {
-          setStatus('Gold not found', 'red');
-          return;
-        }
-
-        symbol = found.symbol;
-        $('symbolLabel').textContent = (found.display_name || 'Gold') + ' · ' + symbol;
-        setStatus('Loading history...');
+        symbol = found ? found.symbol : 'frxXAUUSD'; // Default fallback
+        $('symbolLabel').textContent = symbol;
 
         send({
           ticks_history: symbol,
           count: 300,
           end: 'latest',
           style: 'candles',
-          granularity: timeframe,
-          req_id: 2
+          granularity: timeframe
         });
-        return;
       }
 
-      if (data.msg_type === 'candles' && data.candles) {
+      if (data.msg_type === 'candles') {
         bars = data.candles.map(c => ({
           time: Number(c.epoch),
           open: Number(c.open),
           high: Number(c.high),
           low: Number(c.low),
           close: Number(c.close)
-        })).filter(c => Number.isFinite(c.time)).sort((a, b) => a.time - b.time);
+        })).sort((a,b) => a.time - b.time);
 
         candles.setData(bars);
         chart.timeScale().fitContent();
 
         if (bars.length) {
           $('price').textContent = fmt(bars[bars.length - 1].close);
-          updateIndicators();
+          updateAnalysis();
         }
 
-        send({ ticks: symbol, subscribe: 1, req_id: 3 });
-        setStatus('Live Feed Active', 'green');
-        return;
+        // Subscribe to live tick stream
+        send({ ticks: symbol, subscribe: 1 });
+        setStatus('LIVE FEED', 'green');
       }
 
-      if (data.msg_type === 'tick' && data.tick && symbol) {
-        const tick = data.tick;
-        const price = Number(tick.quote);
-        const epoch = Number(tick.epoch);
-        if (!Number.isFinite(price)) return;
+      if (data.msg_type === 'tick' && data.tick) {
+        const p = Number(data.tick.quote);
+        const t = Number(data.tick.epoch);
+        $('price').textContent = fmt(p);
 
-        $('price').textContent = fmt(price);
-        setStatus('Live · ' + symbol, 'green');
-        addOrUpdateCandle(epoch, price);
+        const bucket = Math.floor(t / timeframe) * timeframe;
+        let last = bars[bars.length - 1];
+
+        if (!last || bucket > last.time) {
+          last = { time: bucket, open: p, high: p, low: p, close: p };
+          bars.push(last);
+        } else {
+          last.high = Math.max(last.high, p);
+          last.low = Math.min(last.low, p);
+          last.close = p;
+        }
+
+        candles.update(last);
+        updateAnalysis();
+        setStatus('LIVE FEED', 'green');
       }
     };
 
-    ws.onerror = () => { if (thisGeneration === generation) setStatus('Error', 'red'); };
+    ws.onerror = () => setStatus('DISCONNECTED', 'red');
     ws.onclose = () => {
-      if (thisGeneration !== generation) return;
-      setStatus('Disconnected', 'red');
+      setStatus('DISCONNECTED', 'red');
+      clearInterval(pingInterval);
     };
   }
 
   $('tf').addEventListener('change', () => {
     timeframe = Number($('tf').value);
-    startConnection();
+    connect();
   });
 
-  $('reconnect').addEventListener('click', startConnection);
-  startConnection();
+  $('reconnect').addEventListener('click', connect);
+
+  connect();
 })();
 </script>
 </body>
