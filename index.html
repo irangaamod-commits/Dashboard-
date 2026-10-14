@@ -4,28 +4,28 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0b1120">
-<title>Gold Live Dashboard</title>
+<title>Advanced Gold Dashboard</title>
 
 <script src="https://unpkg.com/lightweight-charts@5.0.8/dist/lightweight-charts.standalone.production.js"></script>
 
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#0b1120;color:#e7eefb;font:14px Arial,sans-serif}
-header{padding:16px;background:#111b2d;border-bottom:1px solid #283750}
-h1{font-size:20px;margin:0 0 4px}
+header{padding:18px;background:#111b2d;border-bottom:1px solid #283750}
+h1{font-size:20px;margin:0 0 6px}
 small,.muted{color:#94a6c2}
 main{max-width:1100px;margin:auto;padding:12px}
 .card{background:#121e32;border:1px solid #293952;border-radius:12px;padding:14px;margin-bottom:12px}
 .row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.price{font-size:28px;font-weight:bold;margin-top:6px}
-select,button,input{background:#1d2c45;color:#fff;border:1px solid #3a4d69;padding:10px;border-radius:8px;font-size:14px}
-button{cursor:pointer;background:#2563eb;border-color:#3b82f6}
-input{width:160px}
+.price{font-size:28px;font-weight:bold;margin-top:6px;overflow-wrap:anywhere}
+select,button,input{background:#1d2c45;color:#fff;border:1px solid #3a4d69;padding:11px;border-radius:8px;font-size:14px}
+button{cursor:pointer;background:#2563eb;border-color:#3b82f6;font-weight:bold}
+input{width:180px}
 #chart{height:380px;width:100%}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.value{font-size:18px;font-weight:bold;margin-top:6px}
+.value{font-size:19px;font-weight:bold;margin-top:8px}
 .green{color:#20d99a}.red{color:#ff6678}.yellow{color:#ffce70}
-.pill{padding:6px 12px;border-radius:8px;font-weight:bold;font-size:12px}
+.pill{padding:7px 12px;border-radius:8px;font-weight:bold;font-size:12px}
 footer{padding:16px;color:#94a6c2;font-size:12px}
 @media(max-width:380px){#chart{height:320px}.price{font-size:22px}}
 </style>
@@ -33,24 +33,24 @@ footer{padding:16px;color:#94a6c2;font-size:12px}
 
 <body>
 <header>
-  <h1>⚡ GOLD LIVE DASHBOARD</h1>
-  <small>Deriv Real-Time Feed & Technical Signals</small>
+  <h1>⚡ ADVANCED GOLD DASHBOARD</h1>
+  <small>Deriv live feed · Technical Signals</small>
 </header>
 
 <main>
   <section class="card">
     <div class="row">
       <div>
-        <small>SYMBOL</small>
+        <small>GOLD / USD (frxXAUUSD)</small>
         <div id="price" class="price">--</div>
-        <small id="symbolLabel">Connecting...</small>
+        <small id="symbolLabel">Initializing...</small>
       </div>
       <div id="status" class="pill yellow">CONNECTING</div>
     </div>
 
-    <div class="row" style="margin-top:14px">
+    <div class="row" style="margin-top:16px">
       <div style="display:flex; gap:8px; align-items:center;">
-        <label for="tf">Timeframe:</label>
+        <label for="tf">Timeframe</label>
         <select id="tf">
           <option value="60">M1</option>
           <option value="300" selected>M5</option>
@@ -74,12 +74,11 @@ footer{padding:16px;color:#94a6c2;font-size:12px}
     <div class="card">
       <small>SIGNAL</small>
       <div id="signal" class="value yellow">WAIT</div>
-      <small id="reason">Analyzing setup</small>
+      <small id="reason">Analyzing candles...</small>
     </div>
     <div class="card">
       <small>TREND (EMA 9/21)</small>
       <div id="trend" class="value">--</div>
-      <small id="rsiVal">RSI: --</small>
     </div>
     <div class="card">
       <small>STOP LOSS (EST.)</small>
@@ -92,20 +91,16 @@ footer{padding:16px;color:#94a6c2;font-size:12px}
   </section>
 </main>
 
-<footer>
-  Deriv WebSocket Educational Tool. Verified Chart Rendering.
-</footer>
-
 <script>
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
 
   let ws = null;
-  let symbol = null;
   let timeframe = 300;
   let bars = [];
   let pingInterval = null;
+  const symbol = 'frxXAUUSD'; // Standard Deriv Gold Symbol
 
   const chart = LightweightCharts.createChart($('chart'), {
     autoSize: true,
@@ -170,35 +165,45 @@ footer{padding:16px;color:#94a6c2;font-size:12px}
       $('signal').className = 'value green';
       $('sl').textContent = fmt(price - diff * 2);
       $('tp').textContent = fmt(price + diff * 3);
-      $('reason').textContent = 'EMA 9 Crossed Above EMA 21';
+      $('reason').textContent = 'EMA 9 Above EMA 21';
     } else {
       $('signal').textContent = 'SELL';
       $('signal').className = 'value red';
       $('sl').textContent = fmt(price + diff * 2);
       $('tp').textContent = fmt(price - diff * 3);
-      $('reason').textContent = 'EMA 9 Crossed Below EMA 21';
+      $('reason').textContent = 'EMA 9 Below EMA 21';
     }
+  }
+
+  function requestHistory() {
+    setStatus('FETCHING DATA...', 'yellow');
+    $('symbolLabel').textContent = 'Gold (XAU/USD)';
+    send({
+      ticks_history: symbol,
+      count: 300,
+      end: 'latest',
+      style: 'candles',
+      granularity: timeframe
+    });
   }
 
   function connect() {
     if (ws) { clearInterval(pingInterval); ws.close(); }
 
-    setStatus('CONNECTING', 'yellow');
+    setStatus('CONNECTING...', 'yellow');
     const token = $('tokenInput').value.trim();
-    
-    // Using standard Deriv App ID 1089 with Fallback
+
+    // Standard Deriv WebSocket with App ID 1089
     ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
 
     ws.onopen = () => {
-      setStatus('AUTHENTICATING', 'yellow');
-      
-      // Keep connection alive on mobile web
       pingInterval = setInterval(() => send({ ping: 1 }), 30000);
 
       if (token) {
+        setStatus('AUTHENTICATING...', 'yellow');
         send({ authorize: token });
       } else {
-        send({ active_symbols: 'brief', req_id: 1 });
+        requestHistory();
       }
     };
 
@@ -206,23 +211,13 @@ footer{padding:16px;color:#94a6c2;font-size:12px}
       const data = JSON.parse(evt.data);
 
       if (data.msg_type === 'authorize') {
-        send({ active_symbols: 'brief', req_id: 1 });
-      }
-
-      if (data.msg_type === 'active_symbols') {
-        const list = data.active_symbols || [];
-        const found = list.find(s => /xauusd|gold/i.test(s.symbol || ''));
-
-        symbol = found ? found.symbol : 'frxXAUUSD'; // Default fallback
-        $('symbolLabel').textContent = symbol;
-
-        send({
-          ticks_history: symbol,
-          count: 300,
-          end: 'latest',
-          style: 'candles',
-          granularity: timeframe
-        });
+        if (data.error) {
+          setStatus('TOKEN ERROR', 'red');
+          alert('Invalid Token: ' + data.error.message);
+          return;
+        }
+        requestHistory();
+        return;
       }
 
       if (data.msg_type === 'candles') {
@@ -242,9 +237,8 @@ footer{padding:16px;color:#94a6c2;font-size:12px}
           updateAnalysis();
         }
 
-        // Subscribe to live tick stream
         send({ ticks: symbol, subscribe: 1 });
-        setStatus('LIVE FEED', 'green');
+        setStatus('LIVE FEED ACTIVE', 'green');
       }
 
       if (data.msg_type === 'tick' && data.tick) {
@@ -266,7 +260,7 @@ footer{padding:16px;color:#94a6c2;font-size:12px}
 
         candles.update(last);
         updateAnalysis();
-        setStatus('LIVE FEED', 'green');
+        setStatus('LIVE FEED ACTIVE', 'green');
       }
     };
 
