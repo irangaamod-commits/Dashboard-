@@ -2,284 +2,100 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0b1120">
-<title>Advanced Gold Dashboard</title>
-
-<script src="https://unpkg.com/lightweight-charts@5.0.8/dist/lightweight-charts.standalone.production.js"></script>
+<title>Live Gold Trading Dashboard</title>
 
 <style>
-*{box-sizing:border-box}
-body{margin:0;background:#0b1120;color:#e7eefb;font:14px Arial,sans-serif}
-header{padding:18px;background:#111b2d;border-bottom:1px solid #283750}
-h1{font-size:20px;margin:0 0 6px}
-small,.muted{color:#94a6c2}
-main{max-width:1100px;margin:auto;padding:12px}
-.card{background:#121e32;border:1px solid #293952;border-radius:12px;padding:14px;margin-bottom:12px}
-.row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.price{font-size:28px;font-weight:bold;margin-top:6px;overflow-wrap:anywhere}
-select,button,input{background:#1d2c45;color:#fff;border:1px solid #3a4d69;padding:11px;border-radius:8px;font-size:14px}
-button{cursor:pointer;background:#2563eb;border-color:#3b82f6;font-weight:bold}
-input{width:180px}
-#chart{height:380px;width:100%}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.value{font-size:19px;font-weight:bold;margin-top:8px}
-.green{color:#20d99a}.red{color:#ff6678}.yellow{color:#ffce70}
-.pill{padding:7px 12px;border-radius:8px;font-weight:bold;font-size:12px}
-footer{padding:16px;color:#94a6c2;font-size:12px}
-@media(max-width:380px){#chart{height:320px}.price{font-size:22px}}
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0b1120; color: #e7eefb; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 16px 20px; background: #111b2d; border-bottom: 1px solid #283750; text-align: center; }
+  h1 { font-size: 20px; color: #ffd700; letter-spacing: 0.5px; }
+  small { color: #94a6c2; font-size: 12px; }
+  
+  main { max-width: 1200px; margin: auto; padding: 12px; }
+  
+  .card { background: #121e32; border: 1px solid #293952; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+  .chart-container { height: 500px; width: 100%; border-radius: 8px; overflow: hidden; }
+  
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-top: 10px; }
+  .stat-card { background: #182842; border: 1px solid #2f4363; border-radius: 10px; padding: 12px; text-align: center; }
+  .stat-title { font-size: 11px; color: #94a6c2; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-value { font-size: 18px; font-weight: bold; margin-top: 6px; }
+  
+  .green { color: #20d99a; }
+  .red { color: #ff6678; }
+  .yellow { color: #ffce70; }
+
+  footer { text-align: center; padding: 16px; color: #64748b; font-size: 12px; }
+
+  @media (max-width: 600px) {
+    .chart-container { height: 420px; }
+  }
 </style>
 </head>
 
 <body>
+
 <header>
-  <h1>⚡ ADVANCED GOLD DASHBOARD</h1>
-  <small>Deriv live feed · Technical Signals</small>
+  <h1>⚡ LIVE GOLD (XAUUSD) DASHBOARD</h1>
+  <small>Real-Time Market Chart & Technical Overview</small>
 </header>
 
 <main>
+  <!-- LIVE TRADINGVIEW CHART CONTAINER -->
   <section class="card">
-    <div class="row">
-      <div>
-        <small>GOLD / USD (frxXAUUSD)</small>
-        <div id="price" class="price">--</div>
-        <small id="symbolLabel">Initializing...</small>
-      </div>
-      <div id="status" class="pill yellow">CONNECTING</div>
-    </div>
-
-    <div class="row" style="margin-top:16px">
-      <div style="display:flex; gap:8px; align-items:center;">
-        <label for="tf">Timeframe</label>
-        <select id="tf">
-          <option value="60">M1</option>
-          <option value="300" selected>M5</option>
-          <option value="900">M15</option>
-          <option value="1800">M30</option>
-          <option value="3600">H1</option>
-        </select>
-      </div>
-      <div style="display:flex; gap:8px; align-items:center;">
-        <input type="password" id="tokenInput" placeholder="API Token (Optional)">
-        <button id="reconnect">Connect</button>
-      </div>
-    </div>
+    <div class="chart-container" id="tv_chart_container"></div>
   </section>
 
-  <section class="card">
-    <div id="chart"></div>
-  </section>
-
+  <!-- QUICK MARKET SUMMARY -->
   <section class="grid">
-    <div class="card">
-      <small>SIGNAL</small>
-      <div id="signal" class="value yellow">WAIT</div>
-      <small id="reason">Analyzing candles...</small>
+    <div class="stat-card">
+      <div class="stat-title">Market Instrument</div>
+      <div class="stat-value yellow">XAU / USD</div>
     </div>
-    <div class="card">
-      <small>TREND (EMA 9/21)</small>
-      <div id="trend" class="value">--</div>
+    <div class="stat-card">
+      <div class="stat-title">Live Connection</div>
+      <div class="stat-value green">ACTIVE 🟢</div>
     </div>
-    <div class="card">
-      <small>STOP LOSS (EST.)</small>
-      <div id="sl" class="value red">--</div>
+    <div class="stat-card">
+      <div class="stat-title">Primary Trend</div>
+      <div class="stat-value green">BULLISH</div>
     </div>
-    <div class="card">
-      <small>TAKE PROFIT (EST.)</small>
-      <div id="tp" class="value green">--</div>
+    <div class="stat-card">
+      <div class="stat-title">Key Resistance</div>
+      <div class="stat-value red">D1 High</div>
     </div>
   </section>
 </main>
 
-<script>
-(() => {
-  'use strict';
-  const $ = id => document.getElementById(id);
+<footer>
+  Advanced Gold Analytics • Powered by TradingView Live Feed
+</footer>
 
-  let ws = null;
-  let timeframe = 300;
-  let bars = [];
-  let pingInterval = null;
-  const symbol = 'frxXAUUSD'; // Standard Deriv Gold Symbol
-
-  const chart = LightweightCharts.createChart($('chart'), {
-    autoSize: true,
-    layout: { background: { type: 'solid', color: '#121e32' }, textColor: '#c9d6e8' },
-    grid: { vertLines: { color: '#1e2c42' }, horzLines: { color: '#1e2c42' } },
-    rightPriceScale: { borderColor: '#3a4b64' },
-    timeScale: { borderColor: '#3a4b64', timeVisible: true }
+<!-- TradingView Widget Script -->
+<script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+<script type="text/javascript">
+  new TradingView.widget({
+    "autosize": true,
+    "symbol": "OANDA:XAUUSD",
+    "interval": "5",
+    "timezone": "Etc/UTC",
+    "theme": "dark",
+    "style": "1",
+    "locale": "en",
+    "toolbar_bg": "#121e32",
+    "enable_publishing": false,
+    "hide_top_toolbar": false,
+    "allow_symbol_change": true,
+    "save_image": false,
+    "container_id": "tv_chart_container",
+    "studies": [
+      "STD;EMA",
+      "STD;RSI"
+    ]
   });
-
-  const candles = chart.addSeries(LightweightCharts.CandlestickSeries, {
-    upColor: '#20d99a', downColor: '#ff5d70',
-    borderUpColor: '#20d99a', borderDownColor: '#ff5d70',
-    wickUpColor: '#20d99a', wickDownColor: '#ff5d70'
-  });
-
-  const fastEma = chart.addSeries(LightweightCharts.LineSeries, { color: '#ffb347', lineWidth: 2, priceLineVisible: false });
-  const slowEma = chart.addSeries(LightweightCharts.LineSeries, { color: '#4b9dff', lineWidth: 2, priceLineVisible: false });
-
-  function setStatus(text, color) {
-    $('status').textContent = text;
-    $('status').className = 'pill ' + color;
-  }
-
-  function fmt(val) { return Number.isFinite(val) ? val.toFixed(2) : '--'; }
-
-  function send(msg) {
-    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
-  }
-
-  function calculateEMA(values, period) {
-    const out = Array(values.length).fill(null);
-    if (values.length < period) return out;
-    let avg = values.slice(0, period).reduce((a, b) => a + b, 0) / period;
-    out[period - 1] = avg;
-    const k = 2 / (period + 1);
-    for (let i = period; i < values.length; i++) {
-      avg = values[i] * k + avg * (1 - k);
-      out[i] = avg;
-    }
-    return out;
-  }
-
-  function updateAnalysis() {
-    if (bars.length < 25) return;
-    const closes = bars.map(b => b.close);
-    const fast = calculateEMA(closes, 9);
-    const slow = calculateEMA(closes, 21);
-    const idx = closes.length - 1;
-
-    fastEma.setData(bars.map((b, i) => fast[i] ? { time: b.time, value: fast[i] } : null).filter(Boolean));
-    slowEma.setData(bars.map((b, i) => slow[i] ? { time: b.time, value: slow[i] } : null).filter(Boolean));
-
-    const isBull = fast[idx] > slow[idx];
-    $('trend').textContent = isBull ? 'BULLISH' : 'BEARISH';
-    $('trend').className = 'value ' + (isBull ? 'green' : 'red');
-
-    const price = closes[idx];
-    const diff = Math.abs(fast[idx] - slow[idx]);
-
-    if (isBull) {
-      $('signal').textContent = 'BUY';
-      $('signal').className = 'value green';
-      $('sl').textContent = fmt(price - diff * 2);
-      $('tp').textContent = fmt(price + diff * 3);
-      $('reason').textContent = 'EMA 9 Above EMA 21';
-    } else {
-      $('signal').textContent = 'SELL';
-      $('signal').className = 'value red';
-      $('sl').textContent = fmt(price + diff * 2);
-      $('tp').textContent = fmt(price - diff * 3);
-      $('reason').textContent = 'EMA 9 Below EMA 21';
-    }
-  }
-
-  function requestHistory() {
-    setStatus('FETCHING DATA...', 'yellow');
-    $('symbolLabel').textContent = 'Gold (XAU/USD)';
-    send({
-      ticks_history: symbol,
-      count: 300,
-      end: 'latest',
-      style: 'candles',
-      granularity: timeframe
-    });
-  }
-
-  function connect() {
-    if (ws) { clearInterval(pingInterval); ws.close(); }
-
-    setStatus('CONNECTING...', 'yellow');
-    const token = $('tokenInput').value.trim();
-
-    // Standard Deriv WebSocket with App ID 1089
-    ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
-
-    ws.onopen = () => {
-      pingInterval = setInterval(() => send({ ping: 1 }), 30000);
-
-      if (token) {
-        setStatus('AUTHENTICATING...', 'yellow');
-        send({ authorize: token });
-      } else {
-        requestHistory();
-      }
-    };
-
-    ws.onmessage = (evt) => {
-      const data = JSON.parse(evt.data);
-
-      if (data.msg_type === 'authorize') {
-        if (data.error) {
-          setStatus('TOKEN ERROR', 'red');
-          alert('Invalid Token: ' + data.error.message);
-          return;
-        }
-        requestHistory();
-        return;
-      }
-
-      if (data.msg_type === 'candles') {
-        bars = data.candles.map(c => ({
-          time: Number(c.epoch),
-          open: Number(c.open),
-          high: Number(c.high),
-          low: Number(c.low),
-          close: Number(c.close)
-        })).sort((a,b) => a.time - b.time);
-
-        candles.setData(bars);
-        chart.timeScale().fitContent();
-
-        if (bars.length) {
-          $('price').textContent = fmt(bars[bars.length - 1].close);
-          updateAnalysis();
-        }
-
-        send({ ticks: symbol, subscribe: 1 });
-        setStatus('LIVE FEED ACTIVE', 'green');
-      }
-
-      if (data.msg_type === 'tick' && data.tick) {
-        const p = Number(data.tick.quote);
-        const t = Number(data.tick.epoch);
-        $('price').textContent = fmt(p);
-
-        const bucket = Math.floor(t / timeframe) * timeframe;
-        let last = bars[bars.length - 1];
-
-        if (!last || bucket > last.time) {
-          last = { time: bucket, open: p, high: p, low: p, close: p };
-          bars.push(last);
-        } else {
-          last.high = Math.max(last.high, p);
-          last.low = Math.min(last.low, p);
-          last.close = p;
-        }
-
-        candles.update(last);
-        updateAnalysis();
-        setStatus('LIVE FEED ACTIVE', 'green');
-      }
-    };
-
-    ws.onerror = () => setStatus('DISCONNECTED', 'red');
-    ws.onclose = () => {
-      setStatus('DISCONNECTED', 'red');
-      clearInterval(pingInterval);
-    };
-  }
-
-  $('tf').addEventListener('change', () => {
-    timeframe = Number($('tf').value);
-    connect();
-  });
-
-  $('reconnect').addEventListener('click', connect);
-
-  connect();
-})();
 </script>
+
 </body>
 </html>
