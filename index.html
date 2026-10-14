@@ -1,0 +1,606 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b1120">
+<title>My Gold Dashboard</title>
+
+<script src="https://unpkg.com/lightweight-charts@5.0.8/dist/lightweight-charts.standalone.production.js"></script>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b1120;color:#e7eefb;font:14px Arial,sans-serif}
+header{padding:18px;background:#111b2d;border-bottom:1px solid #283750}
+h1{font-size:21px;margin:0 0 6px}
+small,.muted{color:#94a6c2}
+main{max-width:1100px;margin:auto;padding:12px}
+.card{background:#121e32;border:1px solid #293952;border-radius:12px;padding:14px;margin-bottom:12px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.price{font-size:28px;font-weight:bold;margin-top:6px;overflow-wrap:anywhere}
+select,button{background:#1d2c45;color:#fff;border:1px solid #3a4d69;padding:11px;border-radius:8px;font-size:14px}
+button{cursor:pointer}
+#chart{height:390px;width:100%}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.value{font-size:19px;font-weight:bold;margin-top:9px;overflow-wrap:anywhere}
+.green{color:#20d99a}.red{color:#ff6678}.yellow{color:#ffce70}
+.pill{padding:7px 10px;border-radius:8px;background:#1d2c45}
+#history{padding-left:18px;line-height:1.8}
+footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
+@media(max-width:380px){
+  #chart{height:330px}
+  .price{font-size:24px}
+  .card{padding:11px}
+}
+</style>
+</head>
+
+<body>
+<header>
+  <h1>⚡ MY GOLD DASHBOARD</h1>
+  <small>Deriv market data · Manual trading signals</small>
+</header>
+
+<main>
+  <section class="card">
+    <div class="row">
+      <div>
+        <small>GOLD / USD</small>
+        <div id="price" class="price">--</div>
+        <small id="symbolLabel">Looking for XAUUSD...</small>
+      </div>
+      <div id="status" class="pill yellow">Connecting...</div>
+    </div>
+
+    <div class="row" style="margin-top:16px">
+      <label for="tf">Timeframe</label>
+      <select id="tf">
+        <option value="60">M1</option>
+        <option value="300" selected>M5</option>
+        <option value="900">M15</option>
+        <option value="1800">M30</option>
+        <option value="3600">H1</option>
+      </select>
+      <button id="reconnect">Reconnect</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div id="chart"></div>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <small>TRADING SIGNAL</small>
+      <div id="signal" class="value yellow">WAIT</div>
+      <small id="reason">Waiting for candles</small>
+    </div>
+    <div class="card">
+      <small>MARKET TREND</small>
+      <div id="trend" class="value">--</div>
+      <small>EMA 9 / EMA 21</small>
+    </div>
+    <div class="card">
+      <small>ENTRY REFERENCE</small>
+      <div id="entry" class="value">--</div>
+    </div>
+    <div class="card">
+      <small>STOP LOSS ESTIMATE</small>
+      <div id="sl" class="value red">--</div>
+    </div>
+    <div class="card">
+      <small>TAKE PROFIT ESTIMATE</small>
+      <div id="tp" class="value green">--</div>
+    </div>
+    <div class="card">
+      <small>RSI (14)</small>
+      <div id="rsi" class="value">--</div>
+      <small>Momentum indicator</small>
+    </div>
+  </section>
+
+  <section class="card">
+    <b>Signal explanation</b>
+    <p id="details" class="muted">Waiting for live data.</p>
+    <small>SL/TP use ATR estimates, not guaranteed levels.</small>
+  </section>
+
+  <section class="card">
+    <b>Recent signal changes</b>
+    <ol id="history">
+      <li class="muted">No signals yet.</li>
+    </ol>
+  </section>
+</main>
+
+<footer>
+  Independent educational dashboard. Not affiliated with Deriv or TradingView.
+  Chart library: TradingView Lightweight Charts.
+  Signals are experimental and may be wrong. Verify symbol, prices, spread and
+  levels before trading. This website does not place trades.
+</footer>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+
+  // Public market-data connection. If rejected, register your own Deriv app
+  // and replace this app_id with your registered application ID.
+  const APP_ID = '1089';
+  const WS_URL =
+    'wss://ws.derivws.com/websockets/v3?app_id=' + APP_ID;
+
+  let ws = null;
+  let symbol = null;
+  let timeframe = 300;
+  let bars = [];
+  let generation = 0;
+  let tickSubscription = null;
+  let reconnectTimer = null;
+  let lastSignal = '';
+  let manuallyClosed = false;
+
+  const chart = LightweightCharts.createChart($('chart'), {
+    autoSize: true,
+    layout: {
+      background: { type: 'solid', color: '#121e32' },
+      textColor: '#c9d6e8'
+    },
+    grid: {
+      vertLines: { color: '#1e2c42' },
+      horzLines: { color: '#1e2c42' }
+    },
+    rightPriceScale: { borderColor: '#3a4b64' },
+    timeScale: {
+      borderColor: '#3a4b64',
+      timeVisible: true,
+      secondsVisible: false
+    },
+    crosshair: { mode: 0 }
+  });
+
+  const candles = chart.addSeries(
+    LightweightCharts.CandlestickSeries,
+    {
+      upColor: '#20d99a',
+      downColor: '#ff5d70',
+      borderUpColor: '#20d99a',
+      borderDownColor: '#ff5d70',
+      wickUpColor: '#20d99a',
+      wickDownColor: '#ff5d70'
+    }
+  );
+
+  const fastLine = chart.addSeries(
+    LightweightCharts.LineSeries,
+    {
+      color: '#ffb347',
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: true
+    }
+  );
+
+  const slowLine = chart.addSeries(
+    LightweightCharts.LineSeries,
+    {
+      color: '#4b9dff',
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: true
+    }
+  );
+
+  function setStatus(message, color = 'yellow') {
+    $('status').textContent = message;
+    $('status').className = 'pill ' + color;
+  }
+
+  function fmt(value) {
+    return Number.isFinite(value) ? value.toFixed(2) : '--';
+  }
+
+  function resetDisplay() {
+    $('price').textContent = '--';
+    $('symbolLabel').textContent = 'Looking for XAUUSD...';
+    $('signal').textContent = 'WAIT';
+    $('signal').className = 'value yellow';
+    $('reason').textContent = 'Waiting for candles';
+    $('trend').textContent = '--';
+    $('entry').textContent = '--';
+    $('sl').textContent = '--';
+    $('tp').textContent = '--';
+    $('rsi').textContent = '--';
+    $('details').textContent = 'Waiting for live data.';
+    lastSignal = '';
+  }
+
+  function send(payload) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(payload));
+    }
+  }
+
+  function ema(values, period) {
+    const out = Array(values.length).fill(null);
+    if (values.length < period) return out;
+
+    let average = 0;
+    for (let i = 0; i < period; i++) average += values[i];
+    average /= period;
+
+    out[period - 1] = average;
+    const k = 2 / (period + 1);
+
+    for (let i = period; i < values.length; i++) {
+      average = values[i] * k + average * (1 - k);
+      out[i] = average;
+    }
+    return out;
+  }
+
+  function rsi(values, period = 14) {
+    if (values.length <= period) return NaN;
+
+    let gains = 0;
+    let losses = 0;
+
+    for (let i = 1; i <= period; i++) {
+      const change = values[i] - values[i - 1];
+      gains += Math.max(change, 0);
+      losses += Math.max(-change, 0);
+    }
+
+    let avgGain = gains / period;
+    let avgLoss = losses / period;
+
+    for (let i = period + 1; i < values.length; i++) {
+      const change = values[i] - values[i - 1];
+      avgGain =
+        (avgGain * (period - 1) + Math.max(change, 0)) / period;
+      avgLoss =
+        (avgLoss * (period - 1) + Math.max(-change, 0)) / period;
+    }
+
+    if (avgLoss === 0) return avgGain === 0 ? 50 : 100;
+
+    return 100 - 100 / (1 + avgGain / avgLoss);
+  }
+
+  function calculateATR(data, period = 14) {
+    if (data.length < period + 1) return NaN;
+
+    const ranges = [];
+
+    for (let i = 1; i < data.length; i++) {
+      const current = data[i];
+      const previous = data[i - 1];
+
+      ranges.push(Math.max(
+        current.high - current.low,
+        Math.abs(current.high - previous.close),
+        Math.abs(current.low - previous.close)
+      ));
+    }
+
+    const recent = ranges.slice(-period);
+    return recent.reduce((sum, x) => sum + x, 0) / recent.length;
+  }
+
+  function recordSignal(signal, price) {
+    if (signal === lastSignal) return;
+    lastSignal = signal;
+
+    if (signal === 'WAIT') return;
+
+    const list = $('history');
+    if (list.children.length === 1 &&
+        list.children[0].textContent === 'No signals yet.') {
+      list.innerHTML = '';
+    }
+
+    const item = document.createElement('li');
+    item.textContent =
+      new Date().toLocaleTimeString() + ' — ' +
+      signal + ' — ' + fmt(price);
+
+    item.className = signal === 'BUY' ? 'green' : 'red';
+    list.prepend(item);
+
+    while (list.children.length > 10) {
+      list.lastElementChild.remove();
+    }
+  }
+
+  function updateIndicators() {
+    if (bars.length < 25) {
+      $('reason').textContent = 'Collecting candles (need at least 25).';
+      return;
+    }
+
+    const closes = bars.map(b => b.close);
+    const fast = ema(closes, 9);
+    const slow = ema(closes, 21);
+    const i = closes.length - 1;
+    const currentFast = fast[i];
+    const currentSlow = slow[i];
+    const currentRSI = rsi(closes, 14);
+    const currentATR = calculateATR(bars, 14);
+    const price = closes[i];
+
+    fastLine.setData(bars
+      .map((b, index) => fast[index] == null
+        ? null
+        : { time: b.time, value: fast[index] })
+      .filter(Boolean));
+
+    slowLine.setData(bars
+      .map((b, index) => slow[index] == null
+        ? null
+        : { time: b.time, value: slow[index] })
+      .filter(Boolean));
+
+    const bullish = currentFast > currentSlow;
+    const bearish = currentFast < currentSlow;
+
+    $('trend').textContent =
+      bullish ? 'BULLISH' : bearish ? 'BEARISH' : 'NEUTRAL';
+    $('trend').className =
+      'value ' + (bullish ? 'green' : bearish ? 'red' : 'yellow');
+    $('rsi').textContent = fmt(currentRSI);
+
+    let signal = 'WAIT';
+    let reason = 'No confirmed momentum setup.';
+
+    if (bullish && currentRSI >= 50 && currentRSI < 70) {
+      signal = 'BUY';
+      reason = 'EMA 9 above EMA 21 and RSI is between 50 and 70.';
+    } else if (bearish && currentRSI <= 50 && currentRSI > 30) {
+      signal = 'SELL';
+      reason = 'EMA 9 below EMA 21 and RSI is between 30 and 50.';
+    } else if (currentRSI >= 70) {
+      reason = 'RSI is high. Wait for a new setup.';
+    } else if (currentRSI <= 30) {
+      reason = 'RSI is low. Wait for a new setup.';
+    }
+
+    $('signal').textContent = signal;
+    $('signal').className = 'value ' +
+      (signal === 'BUY' ? 'green' :
+       signal === 'SELL' ? 'red' : 'yellow');
+
+    $('reason').textContent = reason;
+    $('entry').textContent = fmt(price);
+
+    if (Number.isFinite(currentATR) && currentATR > 0 &&
+        signal !== 'WAIT') {
+      const direction = signal === 'BUY' ? 1 : -1;
+      $('sl').textContent = fmt(price - direction * currentATR * 1.5);
+      $('tp').textContent = fmt(price + direction * currentATR * 2);
+      $('details').textContent =
+        signal + ' candidate. Entry reference ' + fmt(price) +
+        '; ATR-based SL and TP are estimates. Verify the setup manually.';
+      recordSignal(signal, price);
+    } else {
+      $('sl').textContent = '--';
+      $('tp').textContent = '--';
+      $('details').textContent = reason;
+      if (signal === 'WAIT') lastSignal = 'WAIT';
+    }
+  }
+
+  function addOrUpdateCandle(epoch, price) {
+    const bucket = Math.floor(epoch / timeframe) * timeframe;
+    let last = bars[bars.length - 1];
+
+    if (!last || bucket > last.time) {
+      last = {
+        time: bucket,
+        open: price,
+        high: price,
+        low: price,
+        close: price
+      };
+      bars.push(last);
+
+      if (bars.length > 500) bars.shift();
+      candles.update(last);
+      updateIndicators();
+      return;
+    }
+
+    if (bucket < last.time) return;
+
+    last.high = Math.max(last.high, price);
+    last.low = Math.min(last.low, price);
+    last.close = price;
+
+    candles.update(last);
+    $('price').textContent = fmt(price);
+  }
+
+  function startConnection() {
+    generation++;
+    const thisGeneration = generation;
+    manuallyClosed = false;
+
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    if (ws) {
+      try { ws.close(); } catch (e) {}
+    }
+
+    symbol = null;
+    bars = [];
+    tickSubscription = null;
+    candles.setData([]);
+    fastLine.setData([]);
+    slowLine.setData([]);
+    resetDisplay();
+    setStatus('Connecting...');
+
+    try {
+      ws = new WebSocket(WS_URL);
+    } catch (e) {
+      setStatus('Could not start connection', 'red');
+      return;
+    }
+
+    ws.onopen = () => {
+      if (thisGeneration !== generation) return;
+      setStatus('Finding Gold symbol...');
+      send({ active_symbols: 'brief', req_id: 1 });
+    };
+
+    ws.onmessage = event => {
+      if (thisGeneration !== generation) return;
+
+      let data;
+      try { data = JSON.parse(event.data); }
+      catch (e) { return; }
+
+      if (data.error) {
+        setStatus('API error', 'red');
+        $('details').textContent = data.error.message;
+        $('reason').textContent = data.error.message;
+        return;
+      }
+
+      if (data.msg_type === 'active_symbols') {
+        const list = data.active_symbols || [];
+
+        const found = list.find(item =>
+          /xauusd/i.test(item.symbol || '')
+        );
+
+        if (!found) {
+          const goldCandidates = list
+            .filter(item =>
+              /gold|xau/i.test(
+                (item.display_name || '') + ' ' + (item.symbol || '')
+              )
+            )
+            .slice(0, 10)
+            .map(item =>
+              (item.display_name || 'Unknown') + ' (' + item.symbol + ')'
+            );
+
+          setStatus('XAUUSD unavailable', 'red');
+          $('symbolLabel').textContent = 'No XAUUSD symbol found';
+          $('details').textContent = goldCandidates.length
+            ? 'Related symbols returned by Deriv: ' +
+              goldCandidates.join(', ')
+            : 'Deriv did not return an XAUUSD symbol. Check the symbols available for your account.';
+          return;
+        }
+
+        symbol = found.symbol;
+        $('symbolLabel').textContent =
+          (found.display_name || 'Gold') + ' · ' + symbol;
+
+        setStatus('Loading candles...');
+
+        send({
+          ticks_history: symbol,
+          count: 300,
+          end: 'latest',
+          style: 'candles',
+          granularity: timeframe,
+          req_id: 2
+        });
+        return;
+      }
+
+      if (data.msg_type === 'candles' && data.candles) {
+        bars = data.candles.map(c => ({
+          time: Number(c.epoch),
+          open: Number(c.open),
+          high: Number(c.high),
+          low: Number(c.low),
+          close: Number(c.close)
+        }))
+        .filter(c =>
+          Number.isFinite(c.time) &&
+          Number.isFinite(c.open) &&
+          Number.isFinite(c.high) &&
+          Number.isFinite(c.low) &&
+          Number.isFinite(c.close)
+        )
+        .sort((a, b) => a.time - b.time);
+
+        const unique = [];
+        for (const bar of bars) {
+          if (unique.length &&
+              unique[unique.length - 1].time === bar.time) {
+            unique[unique.length - 1] = bar;
+          } else {
+            unique.push(bar);
+          }
+        }
+        bars = unique.slice(-500);
+
+        candles.setData(bars);
+        chart.timeScale().fitContent();
+
+        if (bars.length) {
+          $('price').textContent = fmt(bars[bars.length - 1].close);
+          updateIndicators();
+        }
+
+        // Subscribe separately for real-time tick updates.
+        send({ ticks: symbol, subscribe: 1, req_id: 3 });
+        setStatus('Candles loaded · Connecting live...', 'green');
+        return;
+      }
+
+      if (data.msg_type === 'tick' && data.tick && symbol) {
+        const tick = data.tick;
+        const price = Number(tick.quote);
+        const epoch = Number(tick.epoch);
+
+        if (!Number.isFinite(price) || !Number.isFinite(epoch)) return;
+
+        if (data.subscription && data.subscription.id) {
+          tickSubscription = data.subscription.id;
+        }
+
+        $('price').textContent = fmt(price);
+        setStatus('Live · ' + symbol, 'green');
+        addOrUpdateCandle(epoch, price);
+      }
+    };
+
+    ws.onerror = () => {
+      if (thisGeneration === generation) {
+        setStatus('Connection error', 'red');
+      }
+    };
+
+    ws.onclose = () => {
+      if (thisGeneration !== generation) return;
+      setStatus('Disconnected', 'red');
+
+      if (!manuallyClosed) {
+        reconnectTimer = setTimeout(() => {
+          if (thisGeneration === generation) startConnection();
+        }, 5000);
+      }
+    };
+  }
+
+  $('tf').addEventListener('change', () => {
+    timeframe = Number($('tf').value);
+    startConnection();
+  });
+
+  $('reconnect').addEventListener('click', startConnection);
+
+  window.addEventListener('online', startConnection);
+
+  startConnection();
+})();
+</script>
+</body>
+</html>
