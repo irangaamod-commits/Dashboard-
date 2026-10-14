@@ -1,11 +1,10 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0b1120">
-<title>My Gold Dashboard</title>
+<title>Advanced Gold Dashboard</title>
 
 <script src="https://unpkg.com/lightweight-charts@5.0.8/dist/lightweight-charts.standalone.production.js"></script>
 
@@ -19,14 +18,15 @@ main{max-width:1100px;margin:auto;padding:12px}
 .card{background:#121e32;border:1px solid #293952;border-radius:12px;padding:14px;margin-bottom:12px}
 .row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .price{font-size:28px;font-weight:bold;margin-top:6px;overflow-wrap:anywhere}
-select,button{background:#1d2c45;color:#fff;border:1px solid #3a4d69;padding:11px;border-radius:8px;font-size:14px}
+select,button,input{background:#1d2c45;color:#fff;border:1px solid #3a4d69;padding:11px;border-radius:8px;font-size:14px}
 button{cursor:pointer}
+input{width:120px}
 #chart{height:390px;width:100%}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .value{font-size:19px;font-weight:bold;margin-top:9px;overflow-wrap:anywhere}
 .green{color:#20d99a}.red{color:#ff6678}.yellow{color:#ffce70}
 .pill{padding:7px 10px;border-radius:8px;background:#1d2c45}
-#history{padding-left:18px;line-height:1.8}
+#history{padding-left:18px;line-height:1.8;max-height:150px;overflow-y:auto}
 footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
 @media(max-width:380px){
   #chart{height:330px}
@@ -38,8 +38,8 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
 
 <body>
 <header>
-  <h1>⚡ MY GOLD DASHBOARD</h1>
-  <small>Deriv market data · Manual trading signals</small>
+  <h1>⚡ ADVANCED GOLD DASHBOARD</h1>
+  <small>Deriv live feed · EMA, RSI, Bollinger Bands & MACD Signals</small>
 </header>
 
 <main>
@@ -48,21 +48,27 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
       <div>
         <small>GOLD / USD</small>
         <div id="price" class="price">--</div>
-        <small id="symbolLabel">Looking for XAUUSD...</small>
+        <small id="symbolLabel">Connecting to Deriv...</small>
       </div>
       <div id="status" class="pill yellow">Connecting...</div>
     </div>
 
     <div class="row" style="margin-top:16px">
-      <label for="tf">Timeframe</label>
-      <select id="tf">
-        <option value="60">M1</option>
-        <option value="300" selected>M5</option>
-        <option value="900">M15</option>
-        <option value="1800">M30</option>
-        <option value="3600">H1</option>
-      </select>
-      <button id="reconnect">Reconnect</button>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <label for="tf">Timeframe</label>
+        <select id="tf">
+          <option value="60">M1</option>
+          <option value="300" selected>M5</option>
+          <option value="900">M15</option>
+          <option value="1800">M30</option>
+          <option value="3600">H1</option>
+        </select>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <label for="appIdInput">App ID:</label>
+        <input type="text" id="appIdInput" value="1089">
+        <button id="reconnect">Reconnect</button>
+      </div>
     </div>
   </section>
 
@@ -77,7 +83,7 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
       <small id="reason">Waiting for candles</small>
     </div>
     <div class="card">
-      <small>MARKET TREND</small>
+      <small>MARKET TREND (EMA)</small>
       <div id="trend" class="value">--</div>
       <small>EMA 9 / EMA 21</small>
     </div>
@@ -94,16 +100,16 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
       <div id="tp" class="value green">--</div>
     </div>
     <div class="card">
-      <small>RSI (14)</small>
+      <small>RSI (14) & MACD</small>
       <div id="rsi" class="value">--</div>
-      <small>Momentum indicator</small>
+      <small id="macdStatus">MACD: --</small>
     </div>
   </section>
 
   <section class="card">
     <b>Signal explanation</b>
     <p id="details" class="muted">Waiting for live data.</p>
-    <small>SL/TP use ATR estimates, not guaranteed levels.</small>
+    <small>SL/TP use ATR estimates. Sound alerts enabled on new signals.</small>
   </section>
 
   <section class="card">
@@ -115,10 +121,8 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
 </main>
 
 <footer>
-  Independent educational dashboard. Not affiliated with Deriv or TradingView.
+  Independent educational dashboard. Not affiliated with Deriv.
   Chart library: TradingView Lightweight Charts.
-  Signals are experimental and may be wrong. Verify symbol, prices, spread and
-  levels before trading. This website does not place trades.
 </footer>
 
 <script>
@@ -127,21 +131,30 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
 
   const $ = id => document.getElementById(id);
 
-  // Public market-data connection. If rejected, register your own Deriv app
-  // and replace this app_id with your registered application ID.
-  const APP_ID = '1089';
-  const WS_URL =
-    'wss://ws.derivws.com/websockets/v3?app_id=' + APP_ID;
-
   let ws = null;
   let symbol = null;
   let timeframe = 300;
   let bars = [];
   let generation = 0;
-  let tickSubscription = null;
   let reconnectTimer = null;
   let lastSignal = '';
   let manuallyClosed = false;
+
+  // Audio alert generator using Web Audio API
+  function playAlertSound() {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5 note
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.2);
+    } catch (e) {}
+  }
 
   const chart = LightweightCharts.createChart($('chart'), {
     autoSize: true,
@@ -162,37 +175,16 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
     crosshair: { mode: 0 }
   });
 
-  const candles = chart.addSeries(
-    LightweightCharts.CandlestickSeries,
-    {
-      upColor: '#20d99a',
-      downColor: '#ff5d70',
-      borderUpColor: '#20d99a',
-      borderDownColor: '#ff5d70',
-      wickUpColor: '#20d99a',
-      wickDownColor: '#ff5d70'
-    }
-  );
+  const candles = chart.addSeries(LightweightCharts.CandlestickSeries, {
+    upColor: '#20d99a', downColor: '#ff5d70',
+    borderUpColor: '#20d99a', borderDownColor: '#ff5d70',
+    wickUpColor: '#20d99a', wickDownColor: '#ff5d70'
+  });
 
-  const fastLine = chart.addSeries(
-    LightweightCharts.LineSeries,
-    {
-      color: '#ffb347',
-      lineWidth: 2,
-      priceLineVisible: false,
-      lastValueVisible: true
-    }
-  );
-
-  const slowLine = chart.addSeries(
-    LightweightCharts.LineSeries,
-    {
-      color: '#4b9dff',
-      lineWidth: 2,
-      priceLineVisible: false,
-      lastValueVisible: true
-    }
-  );
+  const fastLine = chart.addSeries(LightweightCharts.LineSeries, { color: '#ffb347', lineWidth: 2, priceLineVisible: false });
+  const slowLine = chart.addSeries(LightweightCharts.LineSeries, { color: '#4b9dff', lineWidth: 2, priceLineVisible: false });
+  const bbUpper = chart.addSeries(LightweightCharts.LineSeries, { color: 'rgba(255,255,255,0.3)', lineWidth: 1, priceLineVisible: false });
+  const bbLower = chart.addSeries(LightweightCharts.LineSeries, { color: 'rgba(255,255,255,0.3)', lineWidth: 1, priceLineVisible: false });
 
   function setStatus(message, color = 'yellow') {
     $('status').textContent = message;
@@ -214,6 +206,7 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
     $('sl').textContent = '--';
     $('tp').textContent = '--';
     $('rsi').textContent = '--';
+    $('macdStatus').textContent = 'MACD: --';
     $('details').textContent = 'Waiting for live data.';
     lastSignal = '';
   }
@@ -227,14 +220,11 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
   function ema(values, period) {
     const out = Array(values.length).fill(null);
     if (values.length < period) return out;
-
     let average = 0;
     for (let i = 0; i < period; i++) average += values[i];
     average /= period;
-
     out[period - 1] = average;
     const k = 2 / (period + 1);
-
     for (let i = period; i < values.length; i++) {
       average = values[i] * k + average * (1 - k);
       out[i] = average;
@@ -244,80 +234,84 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
 
   function rsi(values, period = 14) {
     if (values.length <= period) return NaN;
-
-    let gains = 0;
-    let losses = 0;
-
+    let gains = 0, losses = 0;
     for (let i = 1; i <= period; i++) {
       const change = values[i] - values[i - 1];
       gains += Math.max(change, 0);
       losses += Math.max(-change, 0);
     }
-
     let avgGain = gains / period;
     let avgLoss = losses / period;
-
     for (let i = period + 1; i < values.length; i++) {
       const change = values[i] - values[i - 1];
-      avgGain =
-        (avgGain * (period - 1) + Math.max(change, 0)) / period;
-      avgLoss =
-        (avgLoss * (period - 1) + Math.max(-change, 0)) / period;
+      avgGain = (avgGain * (period - 1) + Math.max(change, 0)) / period;
+      avgLoss = (avgLoss * (period - 1) + Math.max(-change, 0)) / period;
     }
-
     if (avgLoss === 0) return avgGain === 0 ? 50 : 100;
-
     return 100 - 100 / (1 + avgGain / avgLoss);
   }
 
   function calculateATR(data, period = 14) {
     if (data.length < period + 1) return NaN;
-
     const ranges = [];
-
     for (let i = 1; i < data.length; i++) {
-      const current = data[i];
-      const previous = data[i - 1];
-
-      ranges.push(Math.max(
-        current.high - current.low,
-        Math.abs(current.high - previous.close),
-        Math.abs(current.low - previous.close)
-      ));
+      const current = data[i], previous = data[i - 1];
+      ranges.push(Math.max(current.high - current.low, Math.abs(current.high - previous.close), Math.abs(current.low - previous.close)));
     }
-
     const recent = ranges.slice(-period);
     return recent.reduce((sum, x) => sum + x, 0) / recent.length;
   }
 
-  function recordSignal(signal, price) {
-    if (signal === lastSignal) return;
-    lastSignal = signal;
+  function calculateMACD(closes) {
+    const ema12 = ema(closes, 12);
+    const ema26 = ema(closes, 26);
+    const macdLine = closes.map((_, i) => (ema12[i] !== null && ema26[i] !== null) ? ema12[i] - ema26[i] : null);
+    const validMacd = macdLine.filter(v => v !== null);
+    const signalLine = ema(validMacd, 9);
+    const currentMacd = macdLine[macdLine.length - 1];
+    const currentSignal = signalLine[signalLine.length - 1];
+    return { macd: currentMacd, signal: currentSignal };
+  }
 
-    if (signal === 'WAIT') return;
+  function calculateBollingerBands(closes, period = 20, multiplier = 2) {
+    const upper = [], lower = [];
+    for (let i = 0; i < closes.length; i++) {
+      if (i < period - 1) {
+        upper.push(null);
+        lower.push(null);
+        continue;
+      }
+      const slice = closes.slice(i - period + 1, i + 1);
+      const mean = slice.reduce((a, b) => a + b, 0) / period;
+      const variance = slice.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / period;
+      const stdev = Math.sqrt(variance);
+      upper.push(mean + multiplier * stdev);
+      lower.push(mean - multiplier * stdev);
+    }
+    return { upper, lower };
+  }
+
+  function recordSignal(signal, price) {
+    if (signal === lastSignal || signal === 'WAIT') return;
+    lastSignal = signal;
+    playAlertSound();
 
     const list = $('history');
-    if (list.children.length === 1 &&
-        list.children[0].textContent === 'No signals yet.') {
+    if (list.children.length === 1 && list.children[0].textContent === 'No signals yet.') {
       list.innerHTML = '';
     }
 
     const item = document.createElement('li');
-    item.textContent =
-      new Date().toLocaleTimeString() + ' — ' +
-      signal + ' — ' + fmt(price);
-
+    item.textContent = new Date().toLocaleTimeString() + ' — ' + signal + ' — ' + fmt(price);
     item.className = signal === 'BUY' ? 'green' : 'red';
     list.prepend(item);
 
-    while (list.children.length > 10) {
-      list.lastElementChild.remove();
-    }
+    while (list.children.length > 10) list.lastElementChild.remove();
   }
 
   function updateIndicators() {
-    if (bars.length < 25) {
-      $('reason').textContent = 'Collecting candles (need at least 25).';
+    if (bars.length < 30) {
+      $('reason').textContent = 'Collecting candles (need 30+).';
       return;
     }
 
@@ -325,64 +319,49 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
     const fast = ema(closes, 9);
     const slow = ema(closes, 21);
     const i = closes.length - 1;
-    const currentFast = fast[i];
-    const currentSlow = slow[i];
+    const currentFast = fast[i], currentSlow = slow[i];
     const currentRSI = rsi(closes, 14);
     const currentATR = calculateATR(bars, 14);
+    const macdData = calculateMACD(closes);
+    const bb = calculateBollingerBands(closes, 20, 2);
     const price = closes[i];
 
-    fastLine.setData(bars
-      .map((b, index) => fast[index] == null
-        ? null
-        : { time: b.time, value: fast[index] })
-      .filter(Boolean));
-
-    slowLine.setData(bars
-      .map((b, index) => slow[index] == null
-        ? null
-        : { time: b.time, value: slow[index] })
-      .filter(Boolean));
+    fastLine.setData(bars.map((b, idx) => fast[idx] == null ? null : { time: b.time, value: fast[idx] }).filter(Boolean));
+    slowLine.setData(bars.map((b, idx) => slow[idx] == null ? null : { time: b.time, value: slow[idx] }).filter(Boolean));
+    bbUpper.setData(bars.map((b, idx) => bb.upper[idx] == null ? null : { time: b.time, value: bb.upper[idx] }).filter(Boolean));
+    bbLower.setData(bars.map((b, idx) => bb.lower[idx] == null ? null : { time: b.time, value: bb.lower[idx] }).filter(Boolean));
 
     const bullish = currentFast > currentSlow;
     const bearish = currentFast < currentSlow;
 
-    $('trend').textContent =
-      bullish ? 'BULLISH' : bearish ? 'BEARISH' : 'NEUTRAL';
-    $('trend').className =
-      'value ' + (bullish ? 'green' : bearish ? 'red' : 'yellow');
+    $('trend').textContent = bullish ? 'BULLISH' : bearish ? 'BEARISH' : 'NEUTRAL';
+    $('trend').className = 'value ' + (bullish ? 'green' : bearish ? 'red' : 'yellow');
     $('rsi').textContent = fmt(currentRSI);
+    
+    const macdText = (macdData.macd > macdData.signal) ? 'Bullish' : 'Bearish';
+    $('macdStatus').textContent = 'MACD: ' + macdText;
 
     let signal = 'WAIT';
-    let reason = 'No confirmed momentum setup.';
+    let reason = 'No confirmed multi-indicator setup.';
 
-    if (bullish && currentRSI >= 50 && currentRSI < 70) {
+    if (bullish && currentRSI >= 50 && currentRSI < 70 && macdData.macd > macdData.signal) {
       signal = 'BUY';
-      reason = 'EMA 9 above EMA 21 and RSI is between 50 and 70.';
-    } else if (bearish && currentRSI <= 50 && currentRSI > 30) {
+      reason = 'EMA Trend Bullish + RSI in positive zone + MACD positive.';
+    } else if (bearish && currentRSI <= 50 && currentRSI > 30 && macdData.macd < macdData.signal) {
       signal = 'SELL';
-      reason = 'EMA 9 below EMA 21 and RSI is between 30 and 50.';
-    } else if (currentRSI >= 70) {
-      reason = 'RSI is high. Wait for a new setup.';
-    } else if (currentRSI <= 30) {
-      reason = 'RSI is low. Wait for a new setup.';
+      reason = 'EMA Trend Bearish + RSI in lower zone + MACD negative.';
     }
 
     $('signal').textContent = signal;
-    $('signal').className = 'value ' +
-      (signal === 'BUY' ? 'green' :
-       signal === 'SELL' ? 'red' : 'yellow');
-
+    $('signal').className = 'value ' + (signal === 'BUY' ? 'green' : signal === 'SELL' ? 'red' : 'yellow');
     $('reason').textContent = reason;
     $('entry').textContent = fmt(price);
 
-    if (Number.isFinite(currentATR) && currentATR > 0 &&
-        signal !== 'WAIT') {
+    if (Number.isFinite(currentATR) && currentATR > 0 && signal !== 'WAIT') {
       const direction = signal === 'BUY' ? 1 : -1;
       $('sl').textContent = fmt(price - direction * currentATR * 1.5);
       $('tp').textContent = fmt(price + direction * currentATR * 2);
-      $('details').textContent =
-        signal + ' candidate. Entry reference ' + fmt(price) +
-        '; ATR-based SL and TP are estimates. Verify the setup manually.';
+      $('details').textContent = signal + ' setup confirmed at ' + fmt(price) + '.';
       recordSignal(signal, price);
     } else {
       $('sl').textContent = '--';
@@ -397,15 +376,8 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
     let last = bars[bars.length - 1];
 
     if (!last || bucket > last.time) {
-      last = {
-        time: bucket,
-        open: price,
-        high: price,
-        low: price,
-        close: price
-      };
+      last = { time: bucket, open: price, high: price, low: price, close: price };
       bars.push(last);
-
       if (bars.length > 500) bars.shift();
       candles.update(last);
       updateIndicators();
@@ -434,73 +406,54 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
 
     symbol = null;
     bars = [];
-    tickSubscription = null;
     candles.setData([]);
     fastLine.setData([]);
     slowLine.setData([]);
+    bbUpper.setData([]);
+    bbLower.setData([]);
     resetDisplay();
     setStatus('Connecting...');
 
+    const appId = $('appIdInput').value.trim() || '1089';
+    const wsUrl = 'wss://ws.derivws.com/websockets/v3?app_id=' + appId;
+
     try {
-      ws = new WebSocket(WS_URL);
+      ws = new WebSocket(wsUrl);
     } catch (e) {
-      setStatus('Could not start connection', 'red');
+      setStatus('Connection failed', 'red');
       return;
     }
 
     ws.onopen = () => {
       if (thisGeneration !== generation) return;
-      setStatus('Finding Gold symbol...');
+      setStatus('Searching XAUUSD...');
       send({ active_symbols: 'brief', req_id: 1 });
     };
 
     ws.onmessage = event => {
       if (thisGeneration !== generation) return;
-
       let data;
-      try { data = JSON.parse(event.data); }
-      catch (e) { return; }
+      try { data = JSON.parse(event.data); } catch (e) { return; }
 
       if (data.error) {
-        setStatus('API error', 'red');
+        setStatus('API Error', 'red');
         $('details').textContent = data.error.message;
-        $('reason').textContent = data.error.message;
         return;
       }
 
       if (data.msg_type === 'active_symbols') {
         const list = data.active_symbols || [];
-
-        const found = list.find(item =>
-          /xauusd/i.test(item.symbol || '')
-        );
+        const found = list.find(item => /xauusd/i.test(item.symbol || ''));
 
         if (!found) {
-          const goldCandidates = list
-            .filter(item =>
-              /gold|xau/i.test(
-                (item.display_name || '') + ' ' + (item.symbol || '')
-              )
-            )
-            .slice(0, 10)
-            .map(item =>
-              (item.display_name || 'Unknown') + ' (' + item.symbol + ')'
-            );
-
-          setStatus('XAUUSD unavailable', 'red');
-          $('symbolLabel').textContent = 'No XAUUSD symbol found';
-          $('details').textContent = goldCandidates.length
-            ? 'Related symbols returned by Deriv: ' +
-              goldCandidates.join(', ')
-            : 'Deriv did not return an XAUUSD symbol. Check the symbols available for your account.';
+          setStatus('Symbol not found', 'red');
+          $('symbolLabel').textContent = 'XAUUSD unavailable on this App ID';
           return;
         }
 
         symbol = found.symbol;
-        $('symbolLabel').textContent =
-          (found.display_name || 'Gold') + ' · ' + symbol;
-
-        setStatus('Loading candles...');
+        $('symbolLabel').textContent = (found.display_name || 'Gold') + ' · ' + symbol;
+        setStatus('Loading history...');
 
         send({
           ticks_history: symbol,
@@ -520,26 +473,7 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
           high: Number(c.high),
           low: Number(c.low),
           close: Number(c.close)
-        }))
-        .filter(c =>
-          Number.isFinite(c.time) &&
-          Number.isFinite(c.open) &&
-          Number.isFinite(c.high) &&
-          Number.isFinite(c.low) &&
-          Number.isFinite(c.close)
-        )
-        .sort((a, b) => a.time - b.time);
-
-        const unique = [];
-        for (const bar of bars) {
-          if (unique.length &&
-              unique[unique.length - 1].time === bar.time) {
-            unique[unique.length - 1] = bar;
-          } else {
-            unique.push(bar);
-          }
-        }
-        bars = unique.slice(-500);
+        })).filter(c => Number.isFinite(c.time)).sort((a, b) => a.time - b.time);
 
         candles.setData(bars);
         chart.timeScale().fitContent();
@@ -549,9 +483,8 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
           updateIndicators();
         }
 
-        // Subscribe separately for real-time tick updates.
         send({ ticks: symbol, subscribe: 1, req_id: 3 });
-        setStatus('Candles loaded · Connecting live...', 'green');
+        setStatus('Live feed active', 'green');
         return;
       }
 
@@ -559,12 +492,7 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
         const tick = data.tick;
         const price = Number(tick.quote);
         const epoch = Number(tick.epoch);
-
-        if (!Number.isFinite(price) || !Number.isFinite(epoch)) return;
-
-        if (data.subscription && data.subscription.id) {
-          tickSubscription = data.subscription.id;
-        }
+        if (!Number.isFinite(price)) return;
 
         $('price').textContent = fmt(price);
         setStatus('Live · ' + symbol, 'green');
@@ -572,16 +500,10 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
       }
     };
 
-    ws.onerror = () => {
-      if (thisGeneration === generation) {
-        setStatus('Connection error', 'red');
-      }
-    };
-
+    ws.onerror = () => { if (thisGeneration === generation) setStatus('Error', 'red'); };
     ws.onclose = () => {
       if (thisGeneration !== generation) return;
       setStatus('Disconnected', 'red');
-
       if (!manuallyClosed) {
         reconnectTimer = setTimeout(() => {
           if (thisGeneration === generation) startConnection();
@@ -596,9 +518,6 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
   });
 
   $('reconnect').addEventListener('click', startConnection);
-
-  window.addEventListener('online', startConnection);
-
   startConnection();
 })();
 </script>
