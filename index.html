@@ -109,7 +109,7 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
   <section class="card">
     <b>Signal explanation</b>
     <p id="details" class="muted">Waiting for live data.</p>
-    <small>SL/TP use ATR estimates. Sound alerts enabled on new signals.</small>
+    <small>SL/TP use ATR estimates.</small>
   </section>
 
   <section class="card">
@@ -139,22 +139,6 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
   let reconnectTimer = null;
   let lastSignal = '';
   let manuallyClosed = false;
-
-  // Audio alert generator using Web Audio API
-  function playAlertSound() {
-    try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5 note
-      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.2);
-    } catch (e) {}
-  }
 
   const chart = LightweightCharts.createChart($('chart'), {
     autoSize: true,
@@ -291,24 +275,6 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
     return { upper, lower };
   }
 
-  function recordSignal(signal, price) {
-    if (signal === lastSignal || signal === 'WAIT') return;
-    lastSignal = signal;
-    playAlertSound();
-
-    const list = $('history');
-    if (list.children.length === 1 && list.children[0].textContent === 'No signals yet.') {
-      list.innerHTML = '';
-    }
-
-    const item = document.createElement('li');
-    item.textContent = new Date().toLocaleTimeString() + ' — ' + signal + ' — ' + fmt(price);
-    item.className = signal === 'BUY' ? 'green' : 'red';
-    list.prepend(item);
-
-    while (list.children.length > 10) list.lastElementChild.remove();
-  }
-
   function updateIndicators() {
     if (bars.length < 30) {
       $('reason').textContent = 'Collecting candles (need 30+).';
@@ -346,10 +312,10 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
 
     if (bullish && currentRSI >= 50 && currentRSI < 70 && macdData.macd > macdData.signal) {
       signal = 'BUY';
-      reason = 'EMA Trend Bullish + RSI in positive zone + MACD positive.';
+      reason = 'EMA Trend Bullish + RSI positive + MACD positive.';
     } else if (bearish && currentRSI <= 50 && currentRSI > 30 && macdData.macd < macdData.signal) {
       signal = 'SELL';
-      reason = 'EMA Trend Bearish + RSI in lower zone + MACD negative.';
+      reason = 'EMA Trend Bearish + RSI lower + MACD negative.';
     }
 
     $('signal').textContent = signal;
@@ -361,13 +327,9 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
       const direction = signal === 'BUY' ? 1 : -1;
       $('sl').textContent = fmt(price - direction * currentATR * 1.5);
       $('tp').textContent = fmt(price + direction * currentATR * 2);
-      $('details').textContent = signal + ' setup confirmed at ' + fmt(price) + '.';
-      recordSignal(signal, price);
     } else {
       $('sl').textContent = '--';
       $('tp').textContent = '--';
-      $('details').textContent = reason;
-      if (signal === 'WAIT') lastSignal = 'WAIT';
     }
   }
 
@@ -426,7 +388,7 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
 
     ws.onopen = () => {
       if (thisGeneration !== generation) return;
-      setStatus('Searching XAUUSD...');
+      setStatus('Searching symbols...');
       send({ active_symbols: 'brief', req_id: 1 });
     };
 
@@ -443,11 +405,12 @@ footer{padding:16px;color:#94a6c2;font-size:12px;line-height:1.7}
 
       if (data.msg_type === 'active_symbols') {
         const list = data.active_symbols || [];
-        const found = list.find(item => /xauusd/i.test(item.symbol || ''));
+        // More flexible regex matching for gold symbol on Deriv
+        const found = list.find(item => /xauusd|gold/i.test(item.symbol || '') || /gold/i.test(item.display_name || ''));
 
         if (!found) {
           setStatus('Symbol not found', 'red');
-          $('symbolLabel').textContent = 'XAUUSD unavailable on this App ID';
+          $('symbolLabel').textContent = 'Gold/XAUUSD unavailable';
           return;
         }
 
